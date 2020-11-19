@@ -1,5 +1,12 @@
+branch=$1
+
 EMP="\e[1;4m"
 NORMAL="\e[0m"
+
+if [ -z "$branch" ]; then
+  echo -e "Pass branch name as an argument to deploy-odh-crc.sh"
+  exit 1
+fi
 
 echo -e "${EMP}Logging to CRC${NORMAL}"
 login_command=$(crc console --credentials | grep admin | cut -d "'" -f 2)
@@ -19,9 +26,10 @@ oc apply -f examples/argocd-cluster-binding.yaml
 oc patch secret dev-cluster-spec -n aicoe-argocd-dev --type='json' -p="[{'op': 'replace', 'path': '/data/namespaces', 'value':''}]"
 
 oc project aicoe-argocd-dev
-oc apply -f examples/odh-operator-app.yaml
-oc apply -f examples/odh-deployment-app.yaml
+sed -e "s/HEAD/$branch/" < examples/odh-operator-app.yaml   | oc apply -f -
+sed -e "s/HEAD/$branch/" < examples/odh-deployment-app.yaml | oc apply -f -
 
 # wait for routes for jupyterhub, superset and other ODH components to appear
+echo -e "${EMP}Waiting for routes${NORMAL}"
 oc get -w routes -n odh-deployment
 
